@@ -1,0 +1,5 @@
+appname: MastendeTest
+
+db:
+    url:      mongodb://mastende:mastende@ds115573.mlab.com:15573/mastende-test
+    database: mastende-test

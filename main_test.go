@@ -76,7 +76,7 @@ func TestCreateInvoice(t *testing.T) {
 	b, _ := json.Marshal(result)
 	v, _ := jason.NewObjectFromBytes(b)
 	data, _ := v.GetObject("data")
-	tenant, _ := data.GetObject("createInvoice")
+	tenant, _ := data.GetObject("createMonthlyInvoice")
 
 	_id, _ := tenant.GetString("id")
 

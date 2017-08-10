@@ -1,12 +1,13 @@
 package main
 
 import (
-	"testing"
-	"os"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"fmt"
-	"encoding/json"
+	"os"
+	"testing"
+
 	"github.com/antonholmquist/jason"
 )
 
@@ -20,41 +21,27 @@ func TestMain(m *testing.M) {
 
 	a.Initialize()
 
-	//a.Run(":8080")
-
 	code := m.Run()
 
 	os.Exit(code)
 }
 
-func TestsRun(t *testing.T){
-
-	//testCreateTenant(t)
-
-}
-
 func TestCreateTenant(t *testing.T) {
 
-	payload_ := fmt.Sprintf(`query=mutation+_{
+	payload := fmt.Sprintf(`query=mutation+_{
 		createTenant(name:"Khosi Morafo",zaid:"7704215267089", moveindate:"2017-08-01")
 		{id,name,zaid}}`)
 
-	resource_ := fmt.Sprintf("/graphql?%v", payload_)
+	resource := fmt.Sprintf("/graphql?%v", payload)
 
-	//t.Log(payload_)
+	request, _ := http.NewRequest("POST", resource, nil)
 
-	//t.Log(resource_)
+	response := executeRequest(request)
 
-	req_, _ := http.NewRequest("POST", resource_, nil)
+	var result map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &result)
 
-	response := executeRequest(req_)
-
-	var result_ten map[string]interface{}
-	json.Unmarshal(response.Body.Bytes(), &result_ten)
-
-	//fmt.Print(result_ten)
-
-	b, _ := json.Marshal(result_ten)
+	b, _ := json.Marshal(result)
 	v, _ := jason.NewObjectFromBytes(b)
 	data, _ := v.GetObject("data")
 	tenant, _ := data.GetObject("createTenant")
@@ -67,65 +54,26 @@ func TestCreateTenant(t *testing.T) {
 
 	t.Log(tenantid)
 
-	//tenantid = response_.Body.
-
 	checkResponseCode(t, http.StatusOK, response.Code)
 
 }
 
 func TestCreateInvoice(t *testing.T) {
 
-	payload_ := fmt.Sprintf(`query=mutation+_{
-		createInvoice(tenantid:"%s",date:"2017-08-05", duedate:"2017-08-05")
+	payload := fmt.Sprintf(`query=mutation+_{
+		createMonthlyInvoice(tenantid:"%s", date:"2017-08-01", duedate:"2017-08-05")
 		{id, status, total, balance}}`, tenantid)
 
-	resource_ := fmt.Sprintf("/graphql?%v", payload_)
+	resource := fmt.Sprintf("/graphql?%v", payload)
 
-	req_, _ := http.NewRequest("POST", resource_, nil)
+	request, _ := http.NewRequest("POST", resource, nil)
 
-	response := executeRequest(req_)
+	response := executeRequest(request)
 
-	var result_ten map[string]interface{}
-	json.Unmarshal(response.Body.Bytes(), &result_ten)
+	var result map[string]interface{}
+	json.Unmarshal(response.Body.Bytes(), &result)
 
-	//fmt.Print(result_ten)
-
-	b, _ := json.Marshal(result_ten)
-	v, _ := jason.NewObjectFromBytes(b)
-	data, _ := v.GetObject("data")
-	tenant, _ := data.GetObject("createInvoice")
-
-	_id, _ := tenant.GetString("id")
-
-	invoiceid = _id
-
-	t.Log(response.Body)
-
-	t.Log(invoiceid)
-
-	//tenantid = response_.Body.
-
-	checkResponseCode(t, http.StatusOK, response.Code)
-}
-
-func TestAddInvoiceLineItem(t *testing.T) {
-
-	payload_ := fmt.Sprintf(`query=mutation+_{
-		createLineItem(invoiceid:"%s",date:"2017-08-05", duedate:"2017-08-05")
-		{id, status, total, balance}}`, invoiceid)
-
-	resource_ := fmt.Sprintf("/graphql?%v", payload_)
-
-	req_, _ := http.NewRequest("POST", resource_, nil)
-
-	response := executeRequest(req_)
-
-	var result_ten map[string]interface{}
-	json.Unmarshal(response.Body.Bytes(), &result_ten)
-
-	//fmt.Print(result_ten)
-
-	b, _ := json.Marshal(result_ten)
+	b, _ := json.Marshal(result)
 	v, _ := jason.NewObjectFromBytes(b)
 	data, _ := v.GetObject("data")
 	tenant, _ := data.GetObject("createInvoice")
@@ -157,4 +105,3 @@ func executeRequest(req *http.Request) *httptest.ResponseRecorder {
 
 	return rr
 }
-

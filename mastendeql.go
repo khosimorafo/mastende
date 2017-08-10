@@ -7,15 +7,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/graphql-go/graphql"
-	"github.com/khosimorafo/mastende/tenants"
-	"github.com/khosimorafo/mastende/mastende"
-	"github.com/khosimorafo/mastende/db"
-	"github.com/pkg/errors"
-	"github.com/khosimorafo/mastende/gql"
-	"github.com/jinzhu/configor"
-	"github.com/gorilla/mux"
 	"log"
+
+	"github.com/gorilla/mux"
+	"github.com/graphql-go/graphql"
+	"github.com/jinzhu/configor"
+	"github.com/khosimorafo/mastende/db"
+	"github.com/khosimorafo/mastende/gql"
+	"github.com/khosimorafo/mastende/mastende"
+	"github.com/khosimorafo/mastende/tenants"
+	"github.com/pkg/errors"
 )
 
 var TenantList []tenants.Tenant
@@ -23,7 +24,6 @@ var app *db.App
 var m *mastende.Mastende
 
 type MastendeQL struct {
-
 	Router *mux.Router
 }
 
@@ -64,10 +64,9 @@ var tenantType = graphql.NewObject(gql.TenantTypeConfig())
 
 var invoiceType = graphql.NewObject(gql.InvoiceTypeConfig())
 
-
 // root mutation
 var rootMutation = graphql.NewObject(graphql.ObjectConfig{
-	Name: "RootMutation",
+	Name:   "RootMutation",
 	Fields: mutationFields,
 })
 
@@ -118,7 +117,7 @@ var rootQuery = graphql.NewObject(graphql.ObjectConfig{
 			Description: "List of tenants",
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
-				if err := m.TenantList(params.Args); err != nil{
+				if err := m.TenantList(params.Args); err != nil {
 
 					return nil, err
 				}
@@ -145,8 +144,7 @@ func executeQuery(query string, schema graphql.Schema) *graphql.Result {
 	return result
 }
 
-
-func (a *MastendeQL) Routes()  {
+func (a *MastendeQL) Routes() {
 
 	a.Router.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
 		result := executeQuery(r.URL.Query().Get("query"), schema)
@@ -168,10 +166,10 @@ func Main() {
 	// Display some basic instructions
 	fmt.Println("Now server is running on port 8080")
 	/*
-	fmt.Println("Get single todo: curl -g 'http://localhost:8080/graphql?query={todo(id:\"b\"){id,text,done}}'")
-	fmt.Println("Persist new todo: curl -g 'http://localhost:8080/graphql?query=mutation+_{createTodo(text:\"My+new+todo\"){id,text,done}}'")
-	fmt.Println("Update todo: curl -g 'http://localhost:8080/graphql?query=mutation+_{updateTodo(id:\"a\",done:true){id,text,done}}'")
-	fmt.Println("Load todo list: curl -g 'http://localhost:8080/graphql?query={todoList{id,text,done}}'")
+		fmt.Println("Get single todo: curl -g 'http://localhost:8080/graphql?query={todo(id:\"b\"){id,text,done}}'")
+		fmt.Println("Persist new todo: curl -g 'http://localhost:8080/graphql?query=mutation+_{createTodo(text:\"My+new+todo\"){id,text,done}}'")
+		fmt.Println("Update todo: curl -g 'http://localhost:8080/graphql?query=mutation+_{updateTodo(id:\"a\",done:true){id,text,done}}'")
+		fmt.Println("Load todo list: curl -g 'http://localhost:8080/graphql?query={todoList{id,text,done}}'")
 	*/
 
 	fmt.Println("Get single tenants: curl -g 'http://localhost:8080/graphql?query={tenants(id:\"5TXvJj6VlpRbpThYfMhmBPq2k\"){id,name,zaid}}'")
@@ -190,9 +188,9 @@ var mutationFields = graphql.Fields{
 
 	*/
 	"createTenant": &graphql.Field{
-		Type:        	tenantType, // the return type for this field
-		Description: 	"Persist new tenants",
-		Args: 		gql.TenantFieldArguments(),
+		Type:        tenantType, // the return type for this field
+		Description: "Persist new tenants",
+		Args:        gql.TenantFieldArguments(),
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
 			// perform mutation operation here
@@ -219,7 +217,7 @@ var mutationFields = graphql.Fields{
 	"updateTenant": &graphql.Field{
 		Type:        tenantType, // the return type for this field
 		Description: "Update existing tenants",
-		Args: gql.TenantFieldArguments(),
+		Args:        gql.TenantFieldArguments(),
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 			// marshall and cast the argument value
 			//name, _ := params.Args["name"].(string)
@@ -263,10 +261,10 @@ var mutationFields = graphql.Fields{
 		curl -g 'http://localhost:8080/graphql?query=mutation+
 			_{createInvoice(tenantid:"", lineitems:{}, date:"", duedate:""){id,total}}'
 	*/
-	"createInvoice": &graphql.Field{
-		Type:        	invoiceType, // the return type for this field
-		Description: 	"Persist new invoice",
-		Args: 		gql.InvoiceFieldArguments(),
+	"createMonthlyInvoice": &graphql.Field{
+		Type:        invoiceType, // the return type for this field
+		Description: "Persist new invoice",
+		Args:        gql.InvoiceFieldArguments(),
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
 			// perform mutation operation here
@@ -291,9 +289,9 @@ var mutationFields = graphql.Fields{
 			_{makePayment(invoiceid:"", tenantid:"", amount:"", date:"", mode:""){id}}'
 	*/
 	"makePayment": &graphql.Field{
-		Type:        	tenantType, // the return type for this field
-		Description: 	"Make payment on invoice",
-		Args: 		gql.PaymentFieldArguments(),
+		Type:        tenantType, // the return type for this field
+		Description: "Make payment on invoice",
+		Args:        gql.PaymentFieldArguments(),
 		Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
 			// perform mutation operation here

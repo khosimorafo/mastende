@@ -38,6 +38,7 @@ func TestTenantCreate(t *testing.T) {
 	tenantID := testCreate(t)
 	testGet(tenantID, t)
 	testUpdate(tenantID, t)
+	testList(t)
 	testDelete(tenantID, t)
 	//testGet(tenantID, t)
 }
@@ -62,7 +63,7 @@ func testGet(tenantId string, t *testing.T) {
 		t.Errorf("Error retrieving tenants : ", err.Error())
 	}
 
-	fmt.Printf("Retrieved tenants is : ", tenant)
+	fmt.Printf("Retrieved tenants is : ", tenant.Invoices)
 }
 
 func testUpdate(tenantId string, t *testing.T) {
@@ -82,6 +83,21 @@ func testUpdate(tenantId string, t *testing.T) {
 		t.Errorf("Expected the name to change to (%v). Got %v", update_name, tenant.Name)
 	}
 
+}
+
+func testList(t *testing.T){
+
+	list := []tenants.Tenant{}
+
+	if err := tenants.TenantList(&a, &list, nil); err != nil {
+
+		t.Errorf("Error creating tenants", err.Error())
+	}
+
+	if len(list) != 1 {
+
+		t.Errorf("Expected list size of (%v). Got %v", 1, len(list))
+	}
 }
 
 func testDelete(tenantId string, t *testing.T) {

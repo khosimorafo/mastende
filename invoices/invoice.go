@@ -2,17 +2,17 @@ package invoices
 
 import (
 	"github.com/khosimorafo/mastende/db"
-	"github.com/khosimorafo/mastende/utils"
 	"github.com/khosimorafo/mastende/items"
 	"github.com/khosimorafo/mastende/payments"
+	"github.com/khosimorafo/mastende/utils"
 
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"errors"
-	"time"
-	"log"
 	"fmt"
+	"log"
+	"time"
 )
 
 var a db.App
@@ -20,7 +20,7 @@ var a db.App
 /**
 *
 * Create new invoices record.
-*/
+ */
 func New(db *db.App) *Invoice {
 
 	a = *db
@@ -33,7 +33,7 @@ func New(db *db.App) *Invoice {
 *
 * When provided an id, This function returns a invoice with data already read from the database.
 *
-*/
+ */
 func NewInstanceWithId(app *db.App, id string) (*Invoice, error) {
 
 	a = *app
@@ -52,7 +52,7 @@ func NewInstanceWithId(app *db.App, id string) (*Invoice, error) {
 *
 * Provides scaffolding for a new tenant.
 *
-*/
+ */
 func NewInstanceOfTenantInvoice(app *db.App, input map[string]interface{}) (*Invoice, error) {
 
 	a = *app
@@ -66,11 +66,11 @@ func NewInstanceOfTenantInvoice(app *db.App, input map[string]interface{}) (*Inv
 	return invoice, nil
 }
 
-func (invoice *Invoice) Persist() (error) {
+func (invoice *Invoice) Persist() error {
 
 	invoice.ID = utils.RandStringRunes(25)
 
-	if err := persist(invoice); err != nil{
+	if err := persist(invoice); err != nil {
 
 		return errors.New("Error while attempting to save invoices.")
 	}
@@ -80,43 +80,42 @@ func (invoice *Invoice) Persist() (error) {
 	return nil
 }
 
-func (invoice *Invoice) Read() (error) {
+func (invoice *Invoice) Read() error {
 
-	if err := get(invoice); err != nil{
-
-		return errors.New("Error retrieving invoices.")
-	}
-	return nil
-}
-
-func (invoice *Invoice) Delete() (error) {
-
-	if err := delete(invoice); err != nil{
+	if err := get(invoice); err != nil {
 
 		return errors.New("Error retrieving invoices.")
 	}
 	return nil
 }
 
-func (invoice *Invoice) Update() (error) {
+func (invoice *Invoice) Delete() error {
 
-	if err := update(invoice); err != nil{
+	if err := delete(invoice); err != nil {
+
+		return errors.New("Error retrieving invoices.")
+	}
+	return nil
+}
+
+func (invoice *Invoice) Update() error {
+
+	if err := update(invoice); err != nil {
 
 		return errors.New("Error updating invoices.")
 	}
 	return nil
 }
 
-func (invoice *Invoice) Validate() (error) {
-
+func (invoice *Invoice) Validate() error {
 
 	return nil
 }
 
-func (invoice *Invoice) ApplyDiscount(input map[string]interface{}) (error) {
+func (invoice *Invoice) ApplyDiscount(input map[string]interface{}) error {
 
 	var (
-		_discount_amount	float64 = 0.0
+		_discount_amount float64 = 0.0
 	)
 	_discount_amount = input["amount"].(float64)
 
@@ -127,7 +126,7 @@ func (invoice *Invoice) ApplyDiscount(input map[string]interface{}) (error) {
 
 	/**
 	*  This ensures that only non negative invoice balance amount are accepted.
-	*/
+	 */
 	//if invoice.Balance < _discount_amount {
 	//
 	//	return errors.New("Discount amount cannot be bigger than invoice balance amount.")
@@ -137,12 +136,12 @@ func (invoice *Invoice) ApplyDiscount(input map[string]interface{}) (error) {
 	colQuerier := bson.M{"id": invoice.ID}
 	change := bson.M{
 		"$set": bson.M{
-			"discount": _discount_amount,
+			"discount":    _discount_amount,
 			"updatedtime": time.Now().String(),
 		},
 	}
 
-	if err := db.Update(&a, colQuerier, change); err != nil{
+	if err := db.Update(&a, colQuerier, change); err != nil {
 
 		return err
 	}
@@ -152,11 +151,37 @@ func (invoice *Invoice) ApplyDiscount(input map[string]interface{}) (error) {
 	return nil
 }
 
-func (invoice *Invoice) AddLatePaymentFine (app *db.App) error  {
+func (invoice *Invoice) AddLatePaymentFine(app *db.App) error {
 
+	if err := invoice.Read(); err != nil {
+
+		return err
+	}
+
+	var request map[string]string
+	var payByDate string
+
+	// If a fine addition is attempted and a pay extension exists,
+	// Raise error.
+	if len(invoice.ExtensionRequest) > 0 {
+
+		request = invoice.ExtensionRequest[0]
+
+		payByDate = request["paybydate"]
+		_, d, _ := utils.DateFormatter(payByDate)
+
+		// Test payByDate against current time.
+		if time.Now().Before(d) {
+
+			err_str := fmt.Sprintf("Payment request in place. Expires on % ", payByDate)
+			return errors.New(err_str)
+		}
+	}
+
+	// Retrieve Item
 	var i []items.Item
 
-	err := items.ItemListByName(app, &i,"Late Payment Fine")
+	err := items.ItemListByName(app, &i, "Late Payment Fine")
 
 	if err != nil {
 
@@ -168,20 +193,20 @@ func (invoice *Invoice) AddLatePaymentFine (app *db.App) error  {
 	item := i[0]
 
 	var (
-		_quantity	float64 = 1
+		_quantity float64 = 1
 	)
 
-	_lineMap := map[string]interface{}{
+	lineMap := map[string]interface{}{
 
-		"itemid": utils.RandStringRunes(25),
-		"invoiceid": invoice.ID,
-		"name": item.Name,
-		"description" : item.Description,
-		"quantity": _quantity,
-		"rate": item.Rate,
+		"itemid":      utils.RandStringRunes(25),
+		"invoiceid":   invoice.ID,
+		"name":        item.Name,
+		"description": item.Description,
+		"quantity":    _quantity,
+		"rate":        item.Rate,
 	}
 
-	if e := invoice.AddLineItem(_lineMap); e != nil{
+	if e := invoice.AddLineItem(lineMap); e != nil {
 
 		return e
 	}
@@ -191,23 +216,23 @@ func (invoice *Invoice) AddLatePaymentFine (app *db.App) error  {
 	return nil
 }
 
-func (invoice *Invoice) AddLineItem(input map[string]interface{}) (error) {
+func (invoice *Invoice) AddLineItem(input map[string]interface{}) error {
 
 	line := LineItem{
 
-		ItemID: input["itemid"].(string),
-		InvoiceID: input["invoiceid"].(string),
-		Name: input["name"].(string),
+		ItemID:      input["itemid"].(string),
+		InvoiceID:   input["invoiceid"].(string),
+		Name:        input["name"].(string),
 		Description: input["description"].(string),
-		Quantity: input["quantity"].(float64),
-		Rate: input["rate"].(float64),
+		Quantity:    input["quantity"].(float64),
+		Rate:        input["rate"].(float64),
 	}
 
 	var lines []LineItem
 	var _total float64 = 0.0
 
 	lines = invoice.LineItems
-	lines = append(lines,line)
+	lines = append(lines, line)
 
 	for _, li := range lines {
 
@@ -217,13 +242,13 @@ func (invoice *Invoice) AddLineItem(input map[string]interface{}) (error) {
 	colQuerier := bson.M{"id": invoice.ID}
 	change := bson.M{
 		"$set": bson.M{
-			"total": _total,
-			"lineitems": lines,
+			"total":       _total,
+			"lineitems":   lines,
 			"updatedtime": time.Now().String(),
 		},
 	}
 
-	if err := db.Update(&a, colQuerier, change); err != nil{
+	if err := db.Update(&a, colQuerier, change); err != nil {
 
 		return err
 	}
@@ -239,7 +264,7 @@ func (invoice *Invoice) MakePayment(input map[string]interface{}) error {
 
 	_amount = input["amount"].(float64)
 
-	if invoice.Balance > _amount{
+	if invoice.Balance > _amount {
 
 		errors.New("Payment amount may not be larger than the balance!")
 	}
@@ -271,11 +296,11 @@ func (invoice *Invoice) AddPaymentLine(input map[string]interface{}) error {
 	payment := payments.Payment{
 
 		InvoiceID: input["invoiceid"].(string),
-		TenantID: input["tenantid"].(string),
-		Description: input["description"].(string),
-		Date: input["date"].(string),
+		TenantID:  input["tenantid"].(string),
+		//Description: input["description"].(string),
+		Date:   input["date"].(string),
 		Amount: input["amount"].(float64),
-		Mode: input["mode"].(string),
+		Mode:   input["mode"].(string),
 	}
 
 	var payments []payments.Payment
@@ -286,12 +311,12 @@ func (invoice *Invoice) AddPaymentLine(input map[string]interface{}) error {
 	colQuerier := bson.M{"id": invoice.ID}
 	change := bson.M{
 		"$set": bson.M{
-			"payments": payments,
+			"payments":    payments,
 			"updatedtime": time.Now().String(),
 		},
 	}
 
-	if err := db.Update(&a, colQuerier, change); err != nil{
+	if err := db.Update(&a, colQuerier, change); err != nil {
 
 		return err
 	}
@@ -301,44 +326,107 @@ func (invoice *Invoice) AddPaymentLine(input map[string]interface{}) error {
 	return nil
 }
 
-func (invoice *Invoice) UpdateTotalBalanceAndStatus() error {
+func (invoice *Invoice) PaymentExtensionRequest(input map[string]interface{}) error {
 
-	invoice.Read()
+	if err := invoice.Read(); err != nil {
+
+		return err
+	}
 
 	var (
-		_balance		float64 = 0.0
-		_invoice_total		float64 = 0.0
-		_paid_amount		float64 = 0.0
-		_status			string
+
+		requestDate     string = ""
+		payByDate 		string = ""
+		requestBy       string = ""
+		requestMode     string = "Cash"
+	)
+
+
+
+	if err := utils.DateResolverDefaultOnToday(&requestDate, input["requestdate"]); err != nil {
+
+		return errors.New("Invalid Request Date. ")
+	}
+
+	if err := utils.DateResolverDefaultOnToday(&payByDate, input["paybydate"]); err != nil {
+
+		return errors.New("Invalid Pay Date. ")
+	}
+	
+	utils.StringResolver(&requestBy, input["requestby"])
+ 	utils.StringResolver(&requestMode, input["requestmode"])
+	
+	request := map[string]string{
+
+		"invoiceid":   invoice.ID,
+		"paybydate":   payByDate,
+		"requestby":   requestBy,
+		"requestdate": requestDate,
+		"requestmode": requestMode,
+	}
+
+	var requests []map[string]string
+
+	requests = invoice.ExtensionRequest
+	requests = append(requests, request)
+
+	colQuerier := bson.M{"id": invoice.ID}
+	change := bson.M{
+		"$set": bson.M{
+			"extensionrequest": requests,
+			"updatedtime":      time.Now().String(),
+		},
+	}
+
+	if err := db.Update(&a, colQuerier, change); err != nil {
+
+		return err
+	}
+
+	return nil
+}
+
+func (invoice *Invoice) UpdateTotalBalanceAndStatus() error {
+
+	if err := invoice.Read(); err != nil {
+
+		return err
+	}
+
+	var (
+		balance       float64 = 0.0
+		invoice_total float64 = 0.0
+		paid_amount   float64 = 0.0
+		status        string
 	)
 
 	// Source amount already paid
-	_paid_amount = invoice.GetPaidAmount()
-	_invoice_total = invoice.GetTotalAmount()
+	paid_amount = invoice.GetPaidAmount()
+	invoice_total = invoice.GetTotalAmount()
 
 	// Update invoice balance
-	_balance = _invoice_total - (invoice.Discount + _paid_amount)
+	balance = invoice_total - (invoice.Discount + paid_amount)
 
-	if _invoice_total != 0.0 {
+	if invoice_total != 0.0 {
 
-		if _balance == 0.0 {
+		if balance == 0.0 {
 
-			_status = "Paid"
-		} else if _balance == invoice.Total{
+			status = "Paid"
+		} else if balance == invoice.Total {
 
-			_status = "Unpaid"
-		} else if _balance < invoice.Total {
+			status = "Unpaid"
+		} else if balance < invoice.Total {
 
-			_status = "Partial"
+			status = "Partial"
 		}
 
-		if _status != "Paid" {
+		if status != "Paid" {
 
 			_, d, _ := utils.DateFormatter(invoice.DueDate)
 
 			if time.Now().After(d) {
 
-				_status = "Overdue"
+				status = "Overdue"
 			}
 		}
 	}
@@ -347,14 +435,14 @@ func (invoice *Invoice) UpdateTotalBalanceAndStatus() error {
 	colQuerier := bson.M{"id": invoice.ID}
 	change := bson.M{
 		"$set": bson.M{
-			"total"   	: _invoice_total,
-			"balance"	: _balance,
-			"status"	: _status,
+			"total":       invoice_total,
+			"balance":     balance,
+			"status":      status,
 			"updatedtime": time.Now().String(),
 		},
 	}
 
-	if err := db.Update(&a, colQuerier, change); err != nil{
+	if err := db.Update(&a, colQuerier, change); err != nil {
 
 		return errors.New("Failed to update total and balance!")
 	}
@@ -364,7 +452,7 @@ func (invoice *Invoice) UpdateTotalBalanceAndStatus() error {
 
 func (invoice *Invoice) GetPaidAmount() float64 {
 
-	var _paid_amount  float64 = 0.0
+	var _paid_amount float64 = 0.0
 
 	for _, payment := range invoice.Payments {
 
@@ -375,7 +463,7 @@ func (invoice *Invoice) GetPaidAmount() float64 {
 
 func (invoice *Invoice) GetTotalAmount() float64 {
 
-	var _amount  float64 = 0.0
+	var _amount float64 = 0.0
 
 	for _, item := range invoice.LineItems {
 
@@ -384,7 +472,7 @@ func (invoice *Invoice) GetTotalAmount() float64 {
 	return _amount
 }
 
-func (invoice *Invoice) SetStatusAsDraft() (error) {
+func (invoice *Invoice) SetStatusAsDraft() error {
 
 	// Setup update
 	colQuerier := bson.M{"id": invoice.ID}
@@ -397,7 +485,7 @@ func (invoice *Invoice) SetStatusAsDraft() (error) {
 	return db.Update(&a, colQuerier, change)
 }
 
-func (invoice *Invoice) SetStatusAsSent() (error) {
+func (invoice *Invoice) SetStatusAsSent() error {
 
 	// Setup update
 	colQuerier := bson.M{"id": invoice.ID}
@@ -410,7 +498,7 @@ func (invoice *Invoice) SetStatusAsSent() (error) {
 	return db.Update(&a, colQuerier, change)
 }
 
-func (invoice *Invoice) SetStatusAsPartial() (error) {
+func (invoice *Invoice) SetStatusAsPartial() error {
 
 	// Setup update
 	colQuerier := bson.M{"id": invoice.ID}
@@ -423,7 +511,7 @@ func (invoice *Invoice) SetStatusAsPartial() (error) {
 	return db.Update(&a, colQuerier, change)
 }
 
-func (invoice *Invoice) SetStatusAsOverdue() (error) {
+func (invoice *Invoice) SetStatusAsOverdue() error {
 
 	// Setup update
 	colQuerier := bson.M{"id": invoice.ID}
@@ -436,7 +524,7 @@ func (invoice *Invoice) SetStatusAsOverdue() (error) {
 	return db.Update(&a, colQuerier, change)
 }
 
-func (invoice *Invoice) SetStatusAsUnpaid() (error) {
+func (invoice *Invoice) SetStatusAsUnpaid() error {
 
 	// Setup update
 	colQuerier := bson.M{"id": invoice.ID}
@@ -449,29 +537,29 @@ func (invoice *Invoice) SetStatusAsUnpaid() (error) {
 	return db.Update(&a, colQuerier, change)
 }
 
-func (invoice *Invoice) SetStatusAsPaid() (error) {
+func (invoice *Invoice) SetStatusAsPaid() error {
 
 	// Setup update
 	colQuerier := bson.M{"id": invoice.ID}
 	change := bson.M{
 		"$set": bson.M{
-			"status": "Overdue", "updatedtime": time.Now().String(),
+			"status": "Paid", "updatedtime": time.Now().String(),
 		},
 	}
 
 	return db.Update(&a, colQuerier, change)
 }
 
-func (invoice *Invoice) GetAsMap(m map[string]interface{}) (error) {
+func (invoice *Invoice) GetAsMap(m map[string]interface{}) error {
 
-	if err := get(invoice); err != nil{
+	if err := get(invoice); err != nil {
 
 		return errors.New("Error creating map.")
 	}
 	return nil
 }
 
-func persist(invoice *Invoice) (error) {
+func persist(invoice *Invoice) error {
 
 	// Index
 	index := mgo.Index{
@@ -516,34 +604,33 @@ func delete(invoice *Invoice) error {
 	return nil
 }
 
-func update(invoice *Invoice) error{
+func update(invoice *Invoice) error {
 
 	invoice.UpdatedTime = time.Now().String()
 
 	// Setup update
 	colQuerier := bson.M{"id": invoice.ID}
 	change := bson.M{"$set": bson.M{
-			"tenantid": 	invoice.TenantID,
-			"tenantname":	invoice.TenantName,
-			"number":	invoice.Number,
-			"reference":	invoice.Reference,
-			"total": 	invoice.Total,
-			"balance": 	invoice.Balance,
-			"discount":	invoice.Discount,
-			"date":		invoice.Date,
-			"duedate":	invoice.DueDate,
-			"periodindex": 	invoice.PeriodIndex,
-			"periodname": 	invoice.PeriodName,
-			"status":	invoice.Status,
-			"updatedtime":  invoice.UpdatedTime,
-		},
+		"tenantid":    invoice.TenantID,
+		"tenantname":  invoice.TenantName,
+		"number":      invoice.Number,
+		"reference":   invoice.Reference,
+		"total":       invoice.Total,
+		"balance":     invoice.Balance,
+		"discount":    invoice.Discount,
+		"date":        invoice.Date,
+		"duedate":     invoice.DueDate,
+		"periodindex": invoice.PeriodIndex,
+		"periodname":  invoice.PeriodName,
+		"status":      invoice.Status,
+		"updatedtime": invoice.UpdatedTime,
+	},
 	}
-
 
 	return db.Update(&a, colQuerier, change)
 }
 
-func newTenantInvoice (input map[string]interface{}) *Invoice {
+func newTenantInvoice(input map[string]interface{}) *Invoice {
 
 	lineItems := tenantItem()
 
@@ -575,15 +662,15 @@ func newTenantInvoice (input map[string]interface{}) *Invoice {
 	}
 }
 
-func tenantItem() *[]LineItem  {
+func tenantItem() *[]LineItem {
 
 	// 1. Get rental item
 	item := items.Item{
-		ID: utils.RandStringRunes(25),
-		Name: "",
-		Description:"",
-		Rate: 330,
-		Status: "Active",
+		ID:          utils.RandStringRunes(25),
+		Name:        "",
+		Description: "",
+		Rate:        330,
+		Status:      "Active",
 	}
 
 	line := LineItem{
@@ -598,38 +685,88 @@ func tenantItem() *[]LineItem  {
 	return &[]LineItem{line}
 }
 
-func ListByTenant (app *db.App, invoices *[]Invoice, tenantid string) (error) {
+func ListByTenant(app *db.App, invoices *[]Invoice, tenantid string) error {
+
+	a = *app
+	a.SetCollection("invoices")
 
 	list := []Invoice{}
 
-	if err := app.Collection.Find(bson.M{"tenantid": tenantid}).All(&list); err != nil {
+	if err := a.Collection.Find(bson.M{"tenantid": tenantid}).All(&list); err != nil {
 
 		return err
 	}
+	//Reassign the address pointed to by the payments and return
+	*invoices = list; return nil
+}
 
-	invoices = &list
+func ListByPeriod(app *db.App, invoices *[]Invoice, period_name string) error {
 
-	return nil
+	a = *app
+	a.SetCollection("invoices")
+
+	list := []Invoice{}
+
+	if err := a.Collection.Find(bson.M{"periodname": period_name}).All(&list); err != nil {
+
+		return err
+	}
+	//Reassign the address pointed to by the payments and return
+	*invoices = list; return nil
+}
+
+func ListByStatus(app *db.App, invoices *[]Invoice, status string) error {
+
+	a = *app
+	a.SetCollection("invoices")
+
+	list := []Invoice{}
+
+	if err := a.Collection.Find(bson.M{"status": status}).All(&list); err != nil {
+
+		return err
+	}
+	//Reassign the address pointed to by the payments and return
+	*invoices = list; return nil
+}
+
+func ListOutstanding(app *db.App, invoices *[]Invoice, period_name string) error {
+
+	a = *app
+	a.SetCollection("invoices")
+
+	list := []Invoice{}
+
+	toQuery := []string{"Draft", "Sent", "Partial", "Overdue"}
+
+	if err := a.Collection.Find(bson.M{"status": bson.M{"$in": toQuery}}).All(&list); err != nil {
+
+		return err
+	}
+	//Reassign the address pointed to by the payments and return
+	*invoices = list; return nil
 }
 
 type Invoice struct {
+	ID                  string             `json:"id,omitempty"`
+	TenantID            string             `json:"tenantid"`
+	TenantName          string             `json:"tenantname"`
+	Number              string             `json:"number"`
+	Reference           string             `json:"reference"`
+	Total               float64            `json:"total"`
+	Balance             float64            `json:"balance"`
+	Discount            float64            `json:"discount"`
+	Date                string             `json:"date"`
+	DueDate             string             `json:"duedate"`
+	LastDateForDiscount string             `json:"lastdatefordiscount"`
+	LineItems           []LineItem         `json:"lineitems"`
+	Payments            []payments.Payment `json:"payments"`
+	PeriodIndex         int                `json:"periodindex"`
+	PeriodName          string             `json:"periodname"`
+	Status              string             `json:"status"`
 
-	ID              string     		`json:"id,omitempty"`
-	TenantID        string     		`json:"tenantid"`
-	TenantName      string     		`json:"tenantname"`
-	Number  	string     		`json:"number"`
-	Reference	string     		`json:"reference"`
-	Total		float64			`json:"total"`
-	Balance		float64			`json:"balance"`
-	Discount	float64			`json:"discount"`
-	Date		string     		`json:"date"`
-	DueDate         string     		`json:"duedate"`
-	LineItems       []LineItem 		`json:"lineitems"`
-	Payments        []payments.Payment 	`json:"payments"`
-	PeriodIndex	int			`json:"periodindex"`
-	PeriodName	string 			`json:"periodname"`
-	Status          string			`json:"status"`
+	ExtensionRequest []map[string]string `json:"extension"`
 
-	CreatedTime 	string  		`json:"createdtime"`
-	UpdatedTime 	string  		`json:"updatedtime"`
+	CreatedTime string `json:"createdtime"`
+	UpdatedTime string `json:"updatedtime"`
 }

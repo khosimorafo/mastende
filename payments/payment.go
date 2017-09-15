@@ -139,7 +139,7 @@ func persist(payment *Payment) (error) {
 
 	// Index
 	index := mgo.Index{
-		Key:        []string{"invoiceid", "customerid"},
+		Key:        []string{"invoiceid", "tenantid"},
 		Unique:     false,
 		DropDups:   false,
 		Background: false,

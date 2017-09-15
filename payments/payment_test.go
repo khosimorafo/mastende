@@ -9,9 +9,15 @@ import (
 	"github.com/khosimorafo/mastende/payments"
 	"time"
 	"github.com/khosimorafo/mastende/utils"
+	"github.com/khosimorafo/mastende/periods"
+	"github.com/khosimorafo/mastende/tenants"
+	"github.com/khosimorafo/mastende/invoices"
 )
 
 var a db.App
+
+var tenantid string
+var invoiceid string
 
 // TestMain wraps all tests with the needed initialized mock DB and fixtures
 func TestMain(m *testing.M) {
@@ -32,9 +38,46 @@ func TestMain(m *testing.M) {
 	os.Exit(retCode)
 }
 
+func testCreateTenantAndInvoice(t *testing.T) {
+
+	tenant := tenants.New(&a)
+	tenant.Name = "Test Tenant Name Name"
+	tenant.ZAID = utils.RandNumberRunes(13)
+
+	if err := tenant.Persist(); err != nil {
+		t.Errorf("Error creating tenants", err.Error())
+	}
+
+	invoice := invoices.New(&a)
+	invoice.TenantID = tenant.ID
+	invoice.TenantName = tenant.Name
+	invoice.Date = "2017-08-01"
+	invoice.DueDate = "2017-08-05"
+
+	period, err := periods.NewInstanceWithDate(&a, invoice.Date)
+
+	if err != nil {
+
+		t.Error("Error in assigning period data : ", err.Error())
+	}
+
+	invoice.PeriodIndex = period.Index
+	invoice.PeriodName = period.Name
+
+	if err := invoice.Persist(); err != nil {
+
+		t.Errorf("Error creating invoices", err.Error())
+	}
+
+	tenantid = tenant.ID
+	invoiceid = invoice.ID
+}
+
 func TestPaymentCreate(t *testing.T) {
 
 	// Pass collection to package
+	testCreateTenantAndInvoice(t)
+
 	paymentID := testCreate(t)
 	testGet(paymentID, t)
 	testUpdate(paymentID, t)
@@ -48,6 +91,8 @@ func testCreate(t *testing.T) string {
 	payment := payments.New(&a)
 
 	_date, _, _ := utils.DateFormatter(time.Now().String())
+	payment.TenantID = tenantid
+	payment.InvoiceID = invoiceid
 	payment.Date =  _date
 	payment.Mode = "Cash"
 	payment.Amount = 333.0
@@ -97,3 +142,18 @@ func testDelete(paymentId string, t *testing.T) {
 	}
 }
 
+
+func TestListByTenant(t *testing.T) {
+
+	list := []payments.Payment{}
+
+	if err := payments.ListByTenant(&a, &list, tenantid); err != nil {
+
+		t.Errorf("Error creating tenants", err.Error())
+	}
+
+	if len(list) < 1 {
+
+		t.Errorf("Expected list size of (%v). Got %v", 1, len(list))
+	}
+}

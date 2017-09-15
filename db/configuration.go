@@ -8,5 +8,11 @@ var Config = struct {
 		DbName  string `default:"mastende-test"`
 		Port    uint   `default:"3306"`
 	}
+
+	Invoices struct {
+
+		NettDue     	int   `default:"4"`
+		LastDiscountDay int   `default:"24"`
+	}
 }{}
 

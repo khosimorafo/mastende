@@ -14,6 +14,8 @@ import (
 )
 
 var a db.App
+var period_name string = ""
+
 
 // TestMain wraps all tests with the needed initialized mock DB and fixtures
 func TestMain(m *testing.M) {
@@ -46,11 +48,43 @@ func TestInvoiceCreate(t *testing.T) {
 
 	//testGet(invoiceID, t)
 	testAddLineItem(invoiceID, t)
+	testPaymentExtensionRequest(invoiceID, t)
 	testAddLatePaymentFine(invoiceID, t)
 	testApplyDiscount(invoiceID, t)
 
-	testMakePayment(invoiceID, t)
+	//testMakePayment(invoiceID, t)
 	//testDelete(invoiceID, t)
+}
+
+func TestListByPeriod(t *testing.T){
+
+	list := []invoices.Invoice{}
+
+	if err := invoices.ListByPeriod(&a, &list, period_name); err != nil {
+
+		t.Errorf("Error creating tenants", err.Error())
+	}
+
+	if len(list) < 1 {
+
+		t.Errorf("Expected list size of (%v). Got %v", 1, len(list))
+	}
+}
+
+
+func TestListOutstanding(t *testing.T){
+
+	list := []invoices.Invoice{}
+
+	if err := invoices.ListOutstanding(&a, &list, period_name); err != nil {
+
+		t.Errorf("Error creating tenants", err.Error())
+	}
+
+	if len(list) < 1 {
+
+		t.Errorf("Expected list size of (%v). Got %v", 1, len(list))
+	}
 }
 
 func testCreate(t *testing.T) string {
@@ -95,6 +129,7 @@ func testGet(invoiceId string, t *testing.T) {
 		t.Errorf("Error retrieving invoices : ", err.Error())
 	}
 
+	period_name = invoice.PeriodName
 	fmt.Printf("Retrieved invoices is : ", invoice)
 }
 
@@ -103,7 +138,7 @@ func testUpdate(invoiceId string, t *testing.T) {
 	invoice, err := invoices.NewInstanceWithId(&a, invoiceId)
 	if err != nil {
 		t.Errorf("Error retrieving invoices : ", err.Error())
-	}
+	} 
 
 	update_name := "Updated Name "
 	invoice.TenantName = update_name
@@ -168,6 +203,31 @@ func testAddLineItem(invoiceId string, t *testing.T) {
 	if err := invoice.AddLineItem(line); err != nil{
 
 		t.Errorf("Error adding invoice lineitem", err.Error())
+		return
+	}
+}
+
+func testPaymentExtensionRequest(invoiceId string, t *testing.T)  {
+	
+	invoice, err := invoices.NewInstanceWithId(&a, invoiceId)
+	if err != nil {
+
+		t.Errorf("Error retrieving invoice : ", err.Error())
+		return
+	}
+
+	input := map[string]interface{}{
+
+		"invoiceid"		: invoice.ID,
+		"paybydate" 	: "2017-08-20", 
+		"requestdate"	: "2017-08-10",
+		"requestby" 	: "Khosi Morafo", 
+		"requestmode"	: "Cash",
+	}
+
+	if err := invoice.PaymentExtensionRequest(input); err != nil{
+
+		t.Errorf("Error making payment extension request", err.Error())
 		return
 	}
 }
@@ -238,7 +298,7 @@ func testMakePayment (invoiceId string, t *testing.T)  {
 		"invoiceid": invoice.ID,
 		"tenantid" : invoice.TenantID,
 		"description" : "Pay Description",
-		"date" : "2017-08-01",
+		"date" : "2017-08-01", 
 		"mode" : "Cash",
 		"amount": invoice.Balance,
 	}
